@@ -17,7 +17,7 @@ class Grid(gym.Env):
     YM = 2 # y minus
     YP = 3 # y plus
     
-    def __init__(self, x_size=5, y_size=5, n_agents=2, fov_x=3, fov_y=3):
+    def __init__(self, x_size, y_size, n_agents, fov_x, fov_y):
         super(Grid, self).__init__()
         
         # size of 2D grid

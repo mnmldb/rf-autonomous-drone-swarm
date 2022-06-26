@@ -118,8 +118,16 @@ def _train(env, q):
         # update epsilon
         q.update_eps()
 
-        logger.info('//Episode {0}//    Epsilon: {1:.3f},    Steps: {2},    Greedy Choices (%): {3:.3f},    Coverage (%): {4:.3f},    Steps to Visit {5}% Cells: {6},    Sum of Q-Values: {7:.1f},    Total Reward: {8}'\
-            .format(episode+1, eps_tmp, step+1, np.mean(greedy[episode]), coverage[episode], env_settings.coverage_threshold * 100, speed[episode], sum_q_values[episode][0], np.mean(total_reward[episode])))
+        logger.info('Episode {0} | Epsilon: {1:.3f} | Steps: {2} | Greedy Choices (%): {3:.3f} | Coverage (%): {4:.3f} | Steps to Visit {5}% Cells: {6} | Sum of Q-Values: {7:.1f} | Total Reward: {8}'
+              .format(episode+1,
+                      eps_tmp,  
+                      step+1, 
+                      np.mean(greedy[episode]), 
+                      coverage[episode], 
+                      env_settings.coverage_threshold * 100, 
+                      speed[episode], 
+                      sum_q_values[episode][0],
+                      np.mean(total_reward[episode])))
         
         if episode % train_settings.print_progress_freq == 0:
             print('Episode {} finished.'.format(episode))
