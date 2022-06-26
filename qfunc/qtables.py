@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class QTables():
-    def __init__(self, observation_space, action_space, eps_start=1, eps_end=0.1, gamma=0.9, r=0.99, lr=0.1):
+    def __init__(self, observation_space, action_space, eps_start, eps_end, gamma, r, lr):
         self.num_agents = len(observation_space)
 
         self.observation_space = observation_space
@@ -50,7 +50,7 @@ class QTables():
         y = exp_a / sum_exp_a
         return y
     
-    def get_action(self, observations, agent_i, stuck_counts, max_stuck, e_greedy=True, softmax=False):
+    def get_action(self, observations, agent_i, stuck_counts, max_stuck, e_greedy, softmax):
         # convert the observation to a row number
         obs_row = self.obs_to_row(observations[agent_i])
         if stuck_counts[agent_i] >= max_stuck: # random action to avoid stuck

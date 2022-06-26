@@ -1,6 +1,6 @@
 from pydantic import BaseSettings
 
-class EnvivonmentSettings(BaseSettings):
+class EnvironmentSettings(BaseSettings):
     # grid size
     x_size: int = 5
     y_size: int = 5
@@ -27,7 +27,13 @@ class QTableSettings(BaseSettings):
     max_stuck: int = 100000
 
 class TrainingSettings(BaseSettings):
+    # number of episodes
     train_episodes: int = 200000
+    # max steps in each episode
     max_steps: int = 10 * 10 * 2
+    # frequencty to copy Q function
+    q_func_freq: int = 1000
+    # frequency to print progress
+    print_progress_freq: int = 100
 
 

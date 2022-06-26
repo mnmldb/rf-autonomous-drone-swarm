@@ -4,6 +4,7 @@ import numpy as np
 import copy
 from environment.grid import Grid
 from qfunc.qtables import QTables
+from config.setting import EnvironmentSettings, QTableSettings, TrainingSettings
 
 logging.basicConfig(
     filename='./logs/logfile.log',
@@ -12,6 +13,10 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+env_settings = EnvironmentSettings()
+qfunc_settings = QTableSettings()
+train_settings = TrainingSettings()
 
 # records for each episode
 time_steps = [] # number of time steps in total
@@ -28,15 +33,8 @@ total_greedy_action_values = []
 
 q_class = []
 
-coverage_threshold = 0.90
-max_stuck = 100000
-
-# parameters for training
-train_episodes = 200000
-max_steps = 10 * 10 * 2
-
 def _train():
-    for episode in range(train_episodes):
+    for episode in range(train_settings.train_episodes):
         state = env.reset()
         state = [arr.astype('int') for arr in state] # convert from float to integer
         eps_tmp = q.eps
@@ -47,10 +45,15 @@ def _train():
         epi_action_value = [0] * env.n_agents
         epi_greedy_action_value = [0] * env.n_agents
 
-        for step in range(max_steps):
+        for step in range(train_settings.max_steps):
             action_order = random.sample(env.idx_agents, env.n_agents) # return a random order of the drone indices
             for agent_i in action_order:
-                action, greedy_tf, action_value = q.get_action(observations=state, agent_i=agent_i, stuck_counts=env.stuck_counts, max_stuck=max_stuck, e_greedy=True, softmax=False)
+                action, greedy_tf, action_value = q.get_action(observations=state, 
+                                                               agent_i=agent_i, 
+                                                               stuck_counts=env.stuck_counts, 
+                                                               max_stuck=qfunc_settings.max_stuck, 
+                                                               e_greedy=qfunc_settings.e_greedy, 
+                                                               softmax=qfunc_settings.softmax)
                 next_state, reward, done = env.step(action, agent_i)
                 next_state = [arr.astype('int') for arr in next_state] # convert from float to integer
                 q.train(state, next_state, action, reward, done, agent_i)
@@ -68,7 +71,7 @@ def _train():
 
             # check if decent amoung of cells are visited
             current_coverage = env.get_coverage()
-            if current_coverage >= coverage_threshold and coverage_track:
+            if current_coverage >= env_settings.coverage_threshold and coverage_track:
                 speed.append(step)
                 coverage_track = False
 
@@ -76,7 +79,7 @@ def _train():
             if done:
                 time_steps.append(step)
                 break
-            elif step == max_steps - 1:
+            elif step == train_settings.max_steps - 1:
                 time_steps.append(step)
                 if coverage_track:
                     speed.append(np.nan)
@@ -93,22 +96,32 @@ def _train():
         total_action_values.append(epi_action_value)
         total_greedy_action_values.append(epi_greedy_action_value)
 
-        if episode % 1000 == 0:
+        if episode % train_settings.q_func_freq == 0:
             q_class.append(copy.deepcopy(q))
 
         # update epsilon
         q.update_eps()
 
         logger.info('//Episode {0}//    Epsilon: {1:.3f},    Steps: {2},    Greedy Choices (%): {3:.3f},    Coverage (%): {4:.3f},    Steps to Visit {5}% Cells: {6},    Sum of Q-Values: {7:.1f},    Total Reward: {8}'\
-            .format(episode+1, eps_tmp, step+1, np.mean(greedy[episode]), coverage[episode], coverage_threshold * 100, speed[episode], sum_q_values[episode][0], np.mean(total_reward[episode])))
+            .format(episode+1, eps_tmp, step+1, np.mean(greedy[episode]), coverage[episode], env_settings.coverage_threshold * 100, speed[episode], sum_q_values[episode][0], np.mean(total_reward[episode])))
         
-        if episode % 100 == 0:
+        if episode % train_settings.print_progress_freq == 0:
             print('Episode {} finished.'.format(episode))
 
 if __name__ == '__main__':
     logger.info('Simulation Start')
-    env = Grid(x_size=10, y_size=10, n_agents=1, fov_x=3, fov_y=3)
-    q = QTables(observation_space=env.observation_space, action_space=env.action_space, eps_start=1, eps_end=0, gamma=0.5, r=0.9999, lr=0.01)
+    env = Grid(x_size=env_settings.x_size, 
+               y_size=env_settings.y_size, 
+               n_agents=env_settings.n_agents, 
+               fov_x=env_settings.fov_x, 
+               fov_y=env_settings.fov_y)
+    q = QTables(observation_space=env.observation_space, 
+                action_space=env.action_space, 
+                eps_start=qfunc_settings.eps_start, 
+                eps_end=qfunc_settings.eps_end, 
+                gamma=qfunc_settings.gamma, 
+                r=qfunc_settings.r, 
+                lr=qfunc_settings.lr)
     _train()
     print('Simulating')
     logger.info('Simulation End')
