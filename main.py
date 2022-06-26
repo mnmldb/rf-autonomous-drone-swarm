@@ -18,22 +18,38 @@ env_settings = EnvironmentSettings()
 qfunc_settings = QTableSettings()
 train_settings = TrainingSettings()
 
-# records for each episode
-time_steps = [] # number of time steps in total
-epsilons = [] # epsilon at the end of each episode
-greedy = [] # the ratio of greedy choices
-coverage = [] # the ratio of visited cells at the end
-speed = [] # number of time steps to cover decent amount of cells
-sum_q_values = [] # sum of q-values
-results_mapping = [] # mapping status
-results_count = [] # count status
-total_reward = []
-total_action_values = []
-total_greedy_action_values = []
+def _setup():
+    ''' create environment and Q function '''
+    env = Grid(x_size=env_settings.x_size, 
+               y_size=env_settings.y_size, 
+               n_agents=env_settings.n_agents, 
+               fov_x=env_settings.fov_x, 
+               fov_y=env_settings.fov_y)
+    q = QTables(observation_space=env.observation_space, 
+                action_space=env.action_space, 
+                eps_start=qfunc_settings.eps_start, 
+                eps_end=qfunc_settings.eps_end, 
+                gamma=qfunc_settings.gamma, 
+                r=qfunc_settings.r, 
+                lr=qfunc_settings.lr) 
+    return env, q
 
-q_class = []
+def _train(env, q):
+    ''' records for each episode '''
+    time_steps = [] # number of time steps in total
+    epsilons = [] # epsilon at the end of each episode
+    greedy = [] # the ratio of greedy choices
+    coverage = [] # the ratio of visited cells at the end
+    speed = [] # number of time steps to cover decent amount of cells
+    sum_q_values = [] # sum of q-values
+    results_mapping = [] # mapping status
+    results_count = [] # count status
+    total_reward = []
+    total_action_values = []
+    total_greedy_action_values = []
+    q_class = []
 
-def _train():
+    ''' execute training '''
     for episode in range(train_settings.train_episodes):
         state = env.reset()
         state = [arr.astype('int') for arr in state] # convert from float to integer
@@ -110,18 +126,7 @@ def _train():
 
 if __name__ == '__main__':
     logger.info('Simulation Start')
-    env = Grid(x_size=env_settings.x_size, 
-               y_size=env_settings.y_size, 
-               n_agents=env_settings.n_agents, 
-               fov_x=env_settings.fov_x, 
-               fov_y=env_settings.fov_y)
-    q = QTables(observation_space=env.observation_space, 
-                action_space=env.action_space, 
-                eps_start=qfunc_settings.eps_start, 
-                eps_end=qfunc_settings.eps_end, 
-                gamma=qfunc_settings.gamma, 
-                r=qfunc_settings.r, 
-                lr=qfunc_settings.lr)
-    _train()
+    env, q = _setup()
+    _train(env=env, q=q)
     print('Simulating')
     logger.info('Simulation End')
