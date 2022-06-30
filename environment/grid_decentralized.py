@@ -23,7 +23,7 @@ class Grid(gym.Env):
     NMAP = 0 # cells not mapped
     MAP = 1 # cells mapped
     
-    def __init__(self, grid_size: int, n_agents: int, agent_memory: int):
+    def __init__(self, grid_size: int, n_agents: int, agent_memory: int) -> None:
         super(Grid, self).__init__()
         
         # size of 2D grid
@@ -36,6 +36,7 @@ class Grid(gym.Env):
         # define action space
         self.n_actions = 4 # LEFT, RIGHT, TOP, BOTTOM
         self.action_space = MultiAgentActionSpace([spaces.Discrete(self.n_actions) for _ in range(self.n_agents)])
+        logger.info('Action space is defined.')
 
         # define observation space consisting of:
         ## 1. past actions of the agent and 2. past actions of other agents
@@ -49,6 +50,7 @@ class Grid(gym.Env):
         self.obs_low = np.concatenate([past_actions_low, relative_pos_low])
         self.obs_high = np.concatenate([past_actions_high, relative_pos_high])
         self.observation_space = MultiAgentObservationSpace([spaces.Box(np.float32(self.obs_low), np.float32(self.obs_high)) for _ in range(self.n_agents)])
+        logger.info('Observation space is created.')
 
         # initialize the mapping status
         self._init_grid()
@@ -56,10 +58,11 @@ class Grid(gym.Env):
         # initialize the agents' positions
         self._init_agent()
 
-        logger.info('Environment successfully created.')
+        logger.info('Environment is created.')
 
-    def _init_grid(self):
+    def _init_grid(self) -> None:
         ''' initialize the mapping status '''
+        ''' a cell can be occupied by several drones'''
         # -1: out of the grid
         # 0: cells not mapped
         # 1: cells mapped
@@ -67,9 +70,12 @@ class Grid(gym.Env):
         self.grid_status = np.zeros([self.grid_size, self.grid_size])
         self.grid_counts = np.zeros([self.grid_size, self.grid_size])
         self.n_poi = self.grid_size * self.grid_size
+
+        logger.info('Grid is initialized.')
     
-    def _init_agent(self, initial_pos: List[List[int]] = None):
-        ''' initialize agents' positions '''
+    def _init_agent(self, initial_pos: List[List[int]] = None) -> None:
+        ''' initialize agents' positions and action histories '''
+        # initialize positions
         self.agent_pos = []
         if initial_pos is not None:
             self.agent_pos = initial_pos
@@ -82,6 +88,22 @@ class Grid(gym.Env):
                 agent_pos_y = random.randrange(0, self.grid_size)
                 self.agent_pos.append([agent_pos_x, agent_pos_y])
                 self.grid_status[self.agent_pos[i][0], self.agent_pos[i][1]] = self.MAP
+        
+        # initialize action histories
+        no_action = - 1 # place holder
+        self.agent_action_history = [[no_action] * self.agent_memory] * self.n_agents
 
-        # iniqialize the stuck count
+        # initialize the stuck count
         self.stuck_counts = [0] * self.n_agents
+
+        logger.info('Agents are initialized.')
+    
+    def _get_agent_obs(self) -> List[np.ndarray]:
+        ''' TEMPORARY: Need logic'''
+        self.agent_obs = [np.array([0] * len(self.obs_low))] * self.n_agents
+
+        return self.agent_obs
+
+    def get_coverage(self) -> float:
+        self.mapped_poi = (self.grid_status == 1).sum()
+        return self.mapped_poi / self.n_poi
