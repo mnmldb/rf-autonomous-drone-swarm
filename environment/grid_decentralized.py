@@ -7,19 +7,21 @@ import numpy as np
 import random
 import copy
 import logging
-from typing import List
+from typing import List, Tuple
+from collections import deque
 
 logger = logging.getLogger(__name__)
 
 class Grid(gym.Env):
     ''' action id '''
-    XM = 0 # x minus
-    XP = 1 # x plus
-    YM = 2 # y minus
-    YP = 3 # y plus
+    STAY = 0 # stay (place holder)
+    XM = 1 # x minus
+    XP = 2 # x plus
+    YM = 3 # y minus
+    YP = 4 # y plus
 
     ''' cell status '''
-    OOG = -1 # out of the grid
+    # OOG = -1 # out of the grid
     NMAP = 0 # cells not mapped
     MAP = 1 # cells mapped
     
@@ -34,7 +36,7 @@ class Grid(gym.Env):
         self.idx_agents = list(range(n_agents)) # [0, 1, 2, ..., n_agents - 1]
         
         # define action space
-        self.n_actions = 4 # LEFT, RIGHT, TOP, BOTTOM
+        self.n_actions = 5 # must include STAY
         self.action_space = MultiAgentActionSpace([spaces.Discrete(self.n_actions) for _ in range(self.n_agents)])
         logger.info('Action space is defined.')
 
@@ -91,7 +93,7 @@ class Grid(gym.Env):
         
         # initialize action histories
         no_action = - 1 # place holder
-        self.agent_action_history = [[no_action] * self.agent_memory] * self.n_agents
+        self.agent_action_history = [deque([no_action] * self.agent_memory) for i in range(self.n_agents)]
 
         # initialize the stuck count
         self.stuck_counts = [0] * self.n_agents
@@ -103,7 +105,77 @@ class Grid(gym.Env):
         self.agent_obs = [np.array([0] * len(self.obs_low))] * self.n_agents
 
         return self.agent_obs
+    
+    def _update_agent_action_history(self, agent_action: int, agent_idx: int) -> None:
+        self.agent_action_history[agent_idx].appendleft(agent_action)
+        self.agent_action_history[agent_idx].pop()
 
     def get_coverage(self) -> float:
         self.mapped_poi = (self.grid_status == 1).sum()
         return self.mapped_poi / self.n_poi
+
+    def reset(self, initial_pos: List[List[int]] = None) -> List[np.ndarray]:
+        # initialize the mapping status
+        self._init_grid()
+        # initialize the agent positions and action histories
+        self._init_agent(initial_pos=initial_pos)
+
+        logger.info('Grid and agents are reset.')
+
+        # return the agent observations
+        return self.get_agent_obs()
+
+    def step(self, agent_action: int, agent_idx: int) -> Tuple[List[np.ndarray], int, bool]:
+        # original position
+        org_x  = copy.deepcopy(self.agent_pos[agent_idx][0])
+        org_y  = copy.deepcopy(self.agent_pos[agent_idx][1])
+
+        # move the agent temporarily
+        if agent_action == self.XM:
+            self.agent_pos[agent_idx][0] -= 1
+        elif agent_action == self.XP:
+            self.agent_pos[agent_idx][0] += 1
+        elif agent_action == self.YM:
+            self.agent_pos[agent_idx][1] -= 1
+        elif agent_action == self.YP:
+            self.agent_pos[agent_idx][1] += 1
+        else:
+            raise ValueError("Received invalid action={} which is not part of the action space".format(agent_action))
+        logger.info('The agent moves to the new position temporarily.')
+        
+        # account for the boundaries of the grid
+        if self.agent_pos[agent_idx][0] > self.grid_size - 1 or self.agent_pos[agent_idx][0] < 0 or self.agent_pos[agent_idx][1] > self.grid_size - 1 or self.agent_pos[agent_idx][1] < 0:
+            self.agent_pos[agent_idx][0] = org_x
+            self.agent_pos[agent_idx][1] = org_y 
+            self.grid_counts[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
+            agent_reward = 0
+            self._update_agent_action_history(agent_action=agent_action, agent_idx=agent_idx)
+            logger.info('The agent goes back to the original position because the new position is out of the grid.')
+        else:
+            # previous status of the cell
+            prev_status = self.grid_status[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]]
+            if prev_status == self.NMAP:
+                self.grid_counts[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
+                self.grid_status[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] = 1
+                agent_reward = 10
+                self._update_agent_action_history(agent_action=agent_action, agent_idx=agent_idx)
+                logger.info('The agent position is fixed. Reward: {}'.format(agent_reward))
+            elif prev_status == self.MAP:
+                self.grid_counts[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
+                agent_reward = 0
+                self._update_agent_action_history(agent_action=agent_action, agent_idx=agent_idx)
+                logger.info('The agent position is fixed. Reward {}'.format(agent_reward))
+
+        # update the stuck count
+        if org_x == self.agent_pos[agent_idx][0] and org_y == self.agent_pos[agent_idx][1]: # stuck
+            self.stuck_counts[agent_idx] += 1
+            logger.info('The agent stuck count is updated. Count: {}'.format(self.stuck_counts[agent_idx]))
+        else:
+            self.stuck_counts[agent_idx] = 0
+            logger.info('The agent stuck count is reset.')
+
+        # are we map all cells?
+        self.mapped_poi = (self.grid_status == 1).sum()
+        done = bool(self.mapped_poi == self.n_poi)
+        
+        return self._get_agent_obs(), agent_reward, done
