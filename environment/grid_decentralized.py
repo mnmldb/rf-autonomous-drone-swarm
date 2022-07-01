@@ -14,14 +14,12 @@ logger = logging.getLogger(__name__)
 
 class Grid(gym.Env):
     ''' action id '''
-    STAY = 0 # stay (place holder)
-    XM = 1 # x minus
-    XP = 2 # x plus
-    YM = 3 # y minus
-    YP = 4 # y plus
+    XM = 0 # x minus
+    XP = 1 # x plus
+    YM = 2 # y minus
+    YP = 3 # y plus
 
     ''' cell status '''
-    # OOG = -1 # out of the grid
     NMAP = 0 # cells not mapped
     MAP = 1 # cells mapped
     
@@ -36,7 +34,7 @@ class Grid(gym.Env):
         self.idx_agents = list(range(n_agents)) # [0, 1, 2, ..., n_agents - 1]
         
         # define action space
-        self.n_actions = 5 # must include STAY
+        self.n_actions = 4
         self.action_space = MultiAgentActionSpace([spaces.Discrete(self.n_actions) for _ in range(self.n_agents)])
         logger.info('Action space is defined.')
 
@@ -99,10 +97,30 @@ class Grid(gym.Env):
         self.stuck_counts = [0] * self.n_agents
 
         logger.info('Agents are initialized.')
-    
-    def _get_agent_obs(self) -> List[np.ndarray]:
+
+    def _compute_single_agent_obs(self, agent_idx: int) -> List[int]:
+        # action histories
+        self_action_history = list(self.agent_action_history[agent_idx]) # convert from queue to list
+        others_action_history = [list(v) for k, v in enumerate(self.agent_action_history) if k != agent_idx]
+
+        # relative positions
+        origin_pos = self.agent_pos[agent_idx]
+        absolute_pos = [v for k, v in enumerate(self.agent_pos) if k != agent_idx]
+        relative_pos = (np.array(absolute_pos) - np.array(origin_pos)).tolist() # (1) convert to ndarray (2) compute relative pos by broadcasting (3) convert to lis
+        
+        # flatten and concatenate
+        agent_observation = self_action_history + \
+            [x for xs in others_action_history for x in xs] + \
+            [x for xs in relative_pos for x in xs]
+        
+        return agent_observation
+
+    def _get_agent_obs(self) -> List[List[int]]:
         ''' TEMPORARY: Need logic'''
-        self.agent_obs = [np.array([0] * len(self.obs_low))] * self.n_agents
+        # self.agent_obs = [np.array([0] * len(self.obs_low))] * self.n_agents
+        self.agent_obs = []
+        for i in range(self.n_agents):
+            self.agent_obs.append(self._compute_single_agent_obs(agent_idx=i))
 
         return self.agent_obs
     
@@ -174,7 +192,7 @@ class Grid(gym.Env):
             self.stuck_counts[agent_idx] = 0
             logger.info('The agent stuck count is reset.')
 
-        # are we map all cells?
+        # check if agents map all cells
         self.mapped_poi = (self.grid_status == 1).sum()
         done = bool(self.mapped_poi == self.n_poi)
         
