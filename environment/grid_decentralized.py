@@ -142,7 +142,7 @@ class Grid(gym.Env):
         logger.info('Grid and agents are reset.')
 
         # return the agent observations
-        return self.get_agent_obs()
+        return self._get_agent_obs()
 
     def step(self, agent_action: int, agent_idx: int) -> Tuple[List[np.ndarray], int, bool]:
         # original position
