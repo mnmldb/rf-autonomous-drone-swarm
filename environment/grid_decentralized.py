@@ -50,6 +50,7 @@ class Grid(gym.Env):
         self.obs_low = np.concatenate([past_actions_low, relative_pos_low])
         self.obs_high = np.concatenate([past_actions_high, relative_pos_high])
         self.observation_space = MultiAgentObservationSpace([spaces.Box(np.float32(self.obs_low), np.float32(self.obs_high)) for _ in range(self.n_agents)])
+        self.n_observations = self.observation_space[0].shape[0] # https://github.com/openai/gym/blob/master/gym/spaces/box.py
         logger.info('Observation space is created.')
 
         # initialize the mapping status
