@@ -2,9 +2,10 @@ import logging
 import random
 import numpy as np
 import copy
+from typing import Tuple
 
 from environment.grid_decentralized import Grid
-from qfunc.dqn import Net, ReplayBuffer, QValues, Policy
+from qfunc.dqn import Net, ReplayBuffer, QFunction, Policy
 from config.dqn_setting import EnvironmentSettings, QFuncSettings, PolicySettings, TrainingSettings
 
 train_settings = TrainingSettings()
@@ -22,12 +23,12 @@ qfunc_settings = QFuncSettings()
 pol_settings = PolicySettings()
 train_settings = TrainingSettings()
 
-def _setup():
+def _setup() -> Tuple[Grid, QFunction, Policy]:
     ''' create environment and Q function '''
     env = Grid(grid_size=env_settings.grid_size, 
                n_agents=env_settings.n_agents, 
                agent_memory=env_settings.agent_memory)
-    q = QValues(n_obs=env.n_observations,
+    q = QFunction(n_obs=env.n_observations,
                 n_mid=qfunc_settings.n_mid, 
                 n_action=env.n_actions, 
                 is_gpu=qfunc_settings.is_gpu, 
@@ -35,13 +36,14 @@ def _setup():
                 lr=qfunc_settings.lr, 
                 buffer_limit=qfunc_settings.buffer_limit)
     pol = Policy(policy_type=pol_settings.policy_type, 
-                 n_actions=env.n_actions)
+                 n_actions=env.n_actions,
+                 max_stuck=pol_settings.max_stuck)
     pol.init_e_greedy(eps_start=pol_settings.eps_start, 
                       eps_end=pol_settings.eps_end, 
                       r=pol_settings.r)
     return env, q, pol
 
-def _train(env, q, pol):
+def _train(env: Grid, q: QFunction, pol: Policy) -> None:
     ''' records for each episode '''
     time_steps = [] # number of time steps in total
     epsilons = [] # epsilon at the end of each episode
@@ -52,8 +54,6 @@ def _train(env, q, pol):
     results_mapping = [] # mapping status
     results_count = [] # count status
     total_reward = []
-    total_action_values = []
-    total_greedy_action_values = []
     q_class = [] 
 
     ''' execute training '''
@@ -64,23 +64,21 @@ def _train(env, q, pol):
         greedy_count = [0] * env.n_agents
         coverage_track = True
         epi_reward = [0] * env.n_agents
-        epi_action_value = [0] * env.n_agents
-        epi_greedy_action_value = [0] * env.n_agents
 
         for step in range(train_settings.max_steps):
             action_order = random.sample(env.idx_agents, env.n_agents) # return a random order of the drone indices
-            for agent_i in action_order:
-                agent_obs = np.array(state[agent_i])
+            for agent_idx in action_order:
+                agent_obs = np.array(state[agent_idx])
                 agent_q_values = q.get_q_values(agent_obs) # get q values with the DQN network
-                action, greedy_tf = pol.get_action(agent_q_values)
-                next_state, reward, done = env.step(action, agent_i)
+                action, greedy_tf = pol.get_action(q_values=agent_q_values, stuck_count=env.stuck_counts[agent_idx])
+                next_state, reward, done = env.step(action, agent_idx)
 
                 done_mask = 0.0 if done else 1.0
 
-                agent_next_obs = np.array(next_state[agent_i])
+                agent_next_obs = np.array(next_state[agent_idx])
                 q.memory.put((agent_obs, action, reward, agent_next_obs, done_mask))
-                epi_reward[agent_i] += reward
-                greedy_count[agent_i] += greedy_tf * 1
+                epi_reward[agent_idx] += reward
+                greedy_count[agent_idx] += greedy_tf * 1
 
                 if done:
                     break
@@ -88,16 +86,16 @@ def _train(env, q, pol):
                 # update the observation
                 state = next_state
 
-                # update epsilon
-                pol.update_eps()
+            # update epsilon
+            pol.update_eps()
 
-                # training
-                if q.memory.size() > qfunc_settings.batch_size:
-                    q.train(batch_size=qfunc_settings.batch_size)
-            
-                # update the target network
-                if step % qfunc_settings.target_interval == 0:
-                    q.update_target()
+            # training
+            if q.memory.size() > qfunc_settings.batch_size:
+                q.train(batch_size=qfunc_settings.batch_size)
+        
+            # update the target network
+            if step % qfunc_settings.target_interval == 0:
+                q.update_target()
 
             # check if decent amoung of cells are visited
             current_coverage = env.get_coverage()
@@ -122,9 +120,7 @@ def _train(env, q, pol):
         sum_q_values.append([0])
         results_mapping.append(env.grid_status)
         results_count.append(env.grid_counts)
-        total_reward.append(epi_reward)
-        total_action_values.append(epi_action_value)
-        total_greedy_action_values.append(epi_greedy_action_value)
+        total_reward.append(sum(epi_reward))
 
         if episode % train_settings.q_func_freq == 0:
             q_class.append(copy.deepcopy(q))

@@ -69,7 +69,9 @@ class Grid(gym.Env):
         # 1: cells mapped
 
         self.grid_status = np.zeros([self.grid_size, self.grid_size])
-        self.grid_counts = np.zeros([self.grid_size, self.grid_size])
+        self.grid_counts = []
+        for i in range(self.n_agents):
+            self.grid_counts.append(np.zeros([self.grid_size, self.grid_size]))
         self.n_poi = self.grid_size * self.grid_size
 
         logger.info('Grid is initialized.')
@@ -166,7 +168,7 @@ class Grid(gym.Env):
         if self.agent_pos[agent_idx][0] > self.grid_size - 1 or self.agent_pos[agent_idx][0] < 0 or self.agent_pos[agent_idx][1] > self.grid_size - 1 or self.agent_pos[agent_idx][1] < 0:
             self.agent_pos[agent_idx][0] = org_x
             self.agent_pos[agent_idx][1] = org_y 
-            self.grid_counts[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
+            self.grid_counts[agent_idx][self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
             agent_reward = 0
             self._update_agent_action_history(agent_action=agent_action, agent_idx=agent_idx)
             logger.info('The agent goes back to the original position because the new position is out of the grid.')
@@ -174,13 +176,13 @@ class Grid(gym.Env):
             # previous status of the cell
             prev_status = self.grid_status[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]]
             if prev_status == self.NMAP:
-                self.grid_counts[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
+                self.grid_counts[agent_idx][self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
                 self.grid_status[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] = 1
                 agent_reward = 10
                 self._update_agent_action_history(agent_action=agent_action, agent_idx=agent_idx)
                 logger.info('The agent position is fixed. Reward: {}'.format(agent_reward))
             elif prev_status == self.MAP:
-                self.grid_counts[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
+                self.grid_counts[agent_idx][self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
                 agent_reward = 0
                 self._update_agent_action_history(agent_action=agent_action, agent_idx=agent_idx)
                 logger.info('The agent position is fixed. Reward {}'.format(agent_reward))
