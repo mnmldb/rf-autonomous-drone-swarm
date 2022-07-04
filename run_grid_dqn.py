@@ -6,7 +6,7 @@ from typing import Tuple
 
 from environment.grid_decentralized import Grid
 from qfunc.dqn import Net, ReplayBuffer, QFunction, Policy
-from config.dqn_setting import EnvironmentSettings, QFuncSettings, PolicySettings, TrainingSettings
+from config.setting_grid_dqn import EnvironmentSettings, QFuncSettings, PolicySettings, TrainingSettings
 
 train_settings = TrainingSettings()
 

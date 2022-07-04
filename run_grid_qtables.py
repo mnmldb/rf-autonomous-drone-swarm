@@ -4,7 +4,7 @@ import numpy as np
 import copy
 from environment.grid import Grid
 from qfunc.qtables import QTables
-from config.qtables_setting import EnvironmentSettings, QTableSettings, TrainingSettings
+from config.setting_grid_qtables import EnvironmentSettings, QTableSettings, TrainingSettings
 
 logging.basicConfig(
     filename='./logs/logfile.log',
