@@ -101,7 +101,6 @@ def _train(env, q):
                     speed.append(np.nan)
 
         # record
-        time_steps.append(step + 1)
         epsilons.append(eps_tmp)
         coverage.append(env.get_coverage())
         greedy.append(list(map(lambda x: x / (step + 1), greedy_count)))
