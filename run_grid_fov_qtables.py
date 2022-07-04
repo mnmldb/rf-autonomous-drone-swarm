@@ -2,9 +2,9 @@ import logging
 import random
 import numpy as np
 import copy
-from environment.grid import Grid
+from environment.grid_fov import Grid
 from qfunc.qtables import QTables
-from config.setting_grid_qtables import EnvironmentSettings, QTableSettings, TrainingSettings
+from config.setting_grid_fov_qtables import EnvironmentSettings, QTableSettings, TrainingSettings
 
 logging.basicConfig(
     filename='./logs/logfile.log',
