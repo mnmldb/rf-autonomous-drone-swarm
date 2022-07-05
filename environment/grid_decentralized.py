@@ -70,7 +70,7 @@ class Grid(gym.Env):
 
         self.grid_status = np.zeros([self.grid_size, self.grid_size])
         self.grid_counts = []
-        for i in range(self.n_agents):
+        for _ in range(self.n_agents):
             self.grid_counts.append(np.zeros([self.grid_size, self.grid_size]))
         self.n_poi = self.grid_size * self.grid_size
 
@@ -91,6 +91,11 @@ class Grid(gym.Env):
                 agent_pos_y = random.randrange(0, self.grid_size)
                 self.agent_pos.append([agent_pos_x, agent_pos_y])
                 self.grid_status[self.agent_pos[i][0], self.agent_pos[i][1]] = self.MAP
+
+        # update the grid status of the initial positions
+        for agent_idx in range(self.n_agents):
+            self.grid_counts[agent_idx][self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
+            self.grid_status[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] = self.MAP
         
         # initialize action histories
         no_action = - 1 # place holder
@@ -132,7 +137,7 @@ class Grid(gym.Env):
         self.agent_action_history[agent_idx].pop()
 
     def get_coverage(self) -> float:
-        self.mapped_poi = (self.grid_status == 1).sum()
+        self.mapped_poi = (self.grid_status == self.MAP).sum()
         return self.mapped_poi / self.n_poi
 
     def reset(self, initial_pos: List[List[int]] = None) -> List[np.ndarray]:
@@ -177,7 +182,7 @@ class Grid(gym.Env):
             prev_status = self.grid_status[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]]
             if prev_status == self.NMAP:
                 self.grid_counts[agent_idx][self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] += 1
-                self.grid_status[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] = 1
+                self.grid_status[self.agent_pos[agent_idx][0], self.agent_pos[agent_idx][1]] = self.MAP
                 agent_reward = 10
                 self._update_agent_action_history(agent_action=agent_action, agent_idx=agent_idx)
                 logger.info('The agent position is fixed. Reward: {}'.format(agent_reward))
@@ -196,7 +201,7 @@ class Grid(gym.Env):
             logger.info('The agent stuck count is reset.')
 
         # check if agents map all cells
-        self.mapped_poi = (self.grid_status == 1).sum()
+        self.mapped_poi = (self.grid_status == self.MAP).sum()
         done = bool(self.mapped_poi == self.n_poi)
         
         return self._get_agent_obs(), agent_reward, done
