@@ -107,25 +107,29 @@ class Grid(gym.Env):
         logger.info('Agents are initialized.')
 
     def _compute_single_agent_obs(self, agent_idx: int) -> List[int]:
-        # action histories
-        self_action_history = list(self.agent_action_history[agent_idx]) # convert from queue to list
-        others_action_history = [list(v) for k, v in enumerate(self.agent_action_history) if k != agent_idx]
 
-        # relative positions
-        origin_pos = self.agent_pos[agent_idx]
-        absolute_pos = [v for k, v in enumerate(self.agent_pos) if k != agent_idx]
-        relative_pos = (np.array(absolute_pos) - np.array(origin_pos)).tolist() # (1) convert to ndarray (2) compute relative pos by broadcasting (3) convert to lis
-        
-        # flatten and concatenate
-        agent_observation = self_action_history + \
-            [x for xs in others_action_history for x in xs] + \
-            [x for xs in relative_pos for x in xs]
+        if self.n_agents == 1: # single agent -> action history
+            # action histories
+            agent_observation = list(self.agent_action_history[agent_idx]) # convert from queue to list
+
+        else: # multiple agents -> action histories + relative positions
+            # action histories
+            self_action_history = list(self.agent_action_history[agent_idx]) # convert from queue to list
+            others_action_history = [list(v) for k, v in enumerate(self.agent_action_history) if k != agent_idx]
+
+            # relative positions
+            origin_pos = self.agent_pos[agent_idx]
+            absolute_pos = [v for k, v in enumerate(self.agent_pos) if k != agent_idx]
+            relative_pos = (np.array(absolute_pos) - np.array(origin_pos)).tolist() # (1) convert to ndarray (2) compute relative pos by broadcasting (3) convert to lis
+            
+            # flatten and concatenate
+            agent_observation = self_action_history + \
+                [x for xs in others_action_history for x in xs] + \
+                [x for xs in relative_pos for x in xs]
         
         return agent_observation
 
     def _get_agent_obs(self) -> List[List[int]]:
-        ''' TEMPORARY: Need logic'''
-        # self.agent_obs = [np.array([0] * len(self.obs_low))] * self.n_agents
         self.agent_obs = []
         for i in range(self.n_agents):
             self.agent_obs.append(self._compute_single_agent_obs(agent_idx=i))
