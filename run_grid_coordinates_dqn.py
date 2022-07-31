@@ -5,7 +5,8 @@ import copy
 from typing import Tuple
 
 from environment.grid_coordinates import Grid
-from qfunc.dqn import QFunction, Policy
+from qfunc.dqn import QFunction
+from qfunc.utils_dqn.policy import Policy
 from config.setting_grid_coordinates_dqn import EnvironmentSettings, QFuncSettings, PolicySettings, TrainingSettings
 
 logging.basicConfig(
