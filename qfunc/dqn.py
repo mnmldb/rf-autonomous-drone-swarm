@@ -1,53 +1,14 @@
 # referring to https://github.com/seungeunrho/minimalRL/blob/master/dqn.py
 
 import numpy as np
-import collections
 import random
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import optim
 from typing import Tuple
 
-class Net(nn.Module):
-    def __init__(self, n_obs: int, n_mid: int, n_action: int) -> None:
-        super().__init__()
-        self.fc1 = nn.Linear(n_obs, n_mid) 
-        self.fc2 = nn.Linear(n_mid, n_mid)
-        self.fc3 = nn.Linear(n_mid, n_action)
-
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
-
-class ReplayBuffer():
-    def __init__(self, buffer_limit: int) -> None:
-        self.buffer_limit = buffer_limit
-        self.buffer = collections.deque(maxlen=self.buffer_limit)
-    
-    def put(self, transition):
-        self.buffer.append(transition)
-    
-    def sample(self, n: int):
-        mini_batch = random.sample(self.buffer, n)
-        s_lst, a_lst, r_lst, s_prime_lst, done_mask_lst = [], [], [], [], []
-        
-        for transition in mini_batch:
-            s, a, r, s_prime, done_mask = transition
-            s_lst.append(s)
-            a_lst.append([a])
-            r_lst.append([r])
-            s_prime_lst.append(s_prime)
-            done_mask_lst.append([done_mask])
-
-        return torch.tensor(s_lst, dtype=torch.float), torch.tensor(a_lst), \
-               torch.tensor(r_lst), torch.tensor(s_prime_lst, dtype=torch.float), \
-               torch.tensor(done_mask_lst)
-    
-    def size(self):
-        return len(self.buffer)
+from .utils_dqn.network import Net
+from .utils_dqn.replay_buffer import ReplayBuffer
 
 class QFunction:
     def __init__(self, n_obs: int, n_mid: int, n_action: int, is_gpu: bool, gamma: float, lr: float, buffer_limit: int) -> None:
